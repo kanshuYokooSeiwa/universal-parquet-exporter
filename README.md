@@ -1,12 +1,22 @@
-# MySQL to Parquet Utility Library
+# MySQL to Parquet Pandas Wrapper
 
-This library provides a simple interface to connect to a MySQL database, execute SQL queries, and save the results in Apache Parquet format.
+This is a lightweight **pandas wrapper** designed to simplify the process of extracting data from MySQL databases and converting it to Apache Parquet format. Rather than being a standalone library, this tool provides a convenient interface around pandas functionality to streamline MySQL-to-Parquet workflows.
 
-## Features
+## What This Is
 
-- Connect to a MySQL database using configurable settings.
-- Execute SQL queries and retrieve results.
-- Export query results to Apache Parquet format for efficient storage and processing.
+This wrapper provides a **simplified interface** for:
+- Connecting to MySQL databases with minimal configuration
+- Executing SQL queries and automatically handling results as pandas-compatible data structures
+- Converting query results to Apache Parquet format using pandas' built-in capabilities
+- Managing database connections and error handling
+
+## Key Benefits
+
+- **Pandas-based**: Leverages pandas' robust DataFrame functionality and parquet support
+- **Simplified Workflow**: Reduces boilerplate code for common MySQL-to-Parquet operations  
+- **Type Safety**: Full type annotations for better development experience
+- **Flexible Data Format**: Handles data as dictionaries with meaningful column names (not generic column_0, column_1, etc.)
+- **Easy Integration**: Drop-in solution for data pipelines requiring MySQL data extraction
 
 ## Prerequisites
 
@@ -51,7 +61,7 @@ Use the `QueryExecutor` class from the `query_executor` module to execute your S
 
 To save the results of your query in Parquet format, use the `ParquetWriter` class from the `parquet_writer` module. Call the `write_to_parquet` method with the query results.
 
-## Example
+## Quick Start Example
 
 ```python
 from src.database.mysql_connection import MySQLConnection
@@ -67,21 +77,30 @@ config = DatabaseConfig(
     database="your_database"
 )
 
-# Create a MySQL connection
+# Connect to MySQL
 mysql_conn = MySQLConnection(config)
 connection = mysql_conn.connect()
 
-# Execute a query
+# Execute query and get results as list of dictionaries
+# (This ensures meaningful column names in the parquet file)
 query_executor = QueryExecutor(connection)
-results = query_executor.execute_query("SELECT * FROM your_table")
+results = query_executor.execute_query("SELECT id, name, email FROM users")
+# Results format: [{'id': 1, 'name': 'John', 'email': 'john@example.com'}, ...]
 
-# Write results to Parquet
+# Convert to Parquet using pandas under the hood
 parquet_writer = ParquetWriter()
-parquet_writer.write_to_parquet(results, 'output.parquet')
+parquet_writer.write_to_parquet(results, 'users.parquet')
+# Output parquet file will have columns: id, name, email (not column_0, column_1, etc.)
 
 # Clean up
 mysql_conn.close()
 ```
+
+### Data Format
+
+The wrapper expects data in **dictionary format** for meaningful column names:
+- ✅ **Correct**: `[{'id': 1, 'name': 'John'}, {'id': 2, 'name': 'Jane'}]`
+- ❌ **Avoid**: `[(1, 'John'), (2, 'Jane')]` (results in column_0, column_1)
 
 ## Integration Examples
 
@@ -414,13 +433,60 @@ All code follows strict typing conventions:
 - Variables within functions are explicitly typed
 - All necessary types are imported from the `typing` module
 
+## Architecture
+
+This wrapper is built around three core components:
+
+### 1. MySQLConnection (`src/database/mysql_connection.py`)
+- Handles MySQL database connectivity
+- Wraps standard MySQL connection management
+
+### 2. QueryExecutor (`src/query/query_executor.py`) 
+- Executes SQL queries and returns structured data
+- Converts results to dictionary format for meaningful column names
+
+### 3. ParquetWriter (`src/export/parquet_writer.py`)
+- **Pandas Wrapper**: Uses `pd.DataFrame.to_parquet()` internally
+- Accepts data as `List[Dict[str, Any]]` to preserve column names
+- Leverages pandas' optimized parquet writing capabilities
+
+## Why This Wrapper?
+
+Instead of manually writing:
+```python
+import pandas as pd
+import mysql.connector
+
+# Manual approach - more boilerplate
+conn = mysql.connector.connect(host=..., user=..., password=..., database=...)
+cursor = conn.cursor(dictionary=True)
+cursor.execute("SELECT * FROM users")
+data = cursor.fetchall()
+df = pd.DataFrame(data)
+df.to_parquet('output.parquet', index=False)
+conn.close()
+```
+
+Use this wrapper:
+```python
+# Cleaner, reusable approach
+config = DatabaseConfig(host=..., user=..., password=..., database=...)
+mysql_conn = MySQLConnection(config)
+connection = mysql_conn.connect()
+query_executor = QueryExecutor(connection)
+results = query_executor.execute_query("SELECT * FROM users")
+ParquetWriter().write_to_parquet(results, 'output.parquet')
+mysql_conn.close()
+```
+
 ## Contributing
 
 Contributions are welcome! Please ensure:
 1. All new code includes proper type annotations
-2. Unit tests are provided for new functionality
+2. Unit tests are provided for new functionality  
 3. Tests pass before submitting pull requests
 4. Follow the existing code style and typing conventions
+5. Maintain compatibility with pandas DataFrame operations
 
 ## License
 
