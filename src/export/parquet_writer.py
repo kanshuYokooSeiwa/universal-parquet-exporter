@@ -1,12 +1,16 @@
-from typing import List, Tuple, Any
+from typing import List, Dict, Any
 import pandas as pd
 
 class ParquetWriter:
     def __init__(self) -> None:
         pass
     
-    def write_to_parquet(self, data: List[Tuple[Any, ...]], file_path: str) -> None:
-        # Convert the data to a DataFrame
+    def write_to_parquet(self, data: List[Dict[str, Any]], file_path: str) -> None:
+        # Check if data is not empty
+        if not data:
+            raise ValueError("Data cannot be empty.")
+        
+        # Convert the data to a DataFrame (column names come from dict keys)
         df: pd.DataFrame = pd.DataFrame(data)
         
         # Write the DataFrame to a Parquet file
