@@ -65,13 +65,31 @@ def main() -> None:
         connection = sql_conn.connect()
         print("✓ Connected to SQL Server successfully!")
         print()
-        
+
         # Create query executor
         query_executor = QueryExecutor(connection)
-        
+
+        # Show all tables in the selected database
+        print("-" * 70)
+        print("All tables in the selected database:")
+        print("-" * 70)
+        show_tables_query = '''
+        SELECT s.name AS schema_name, t.name AS table_name
+        FROM sys.tables t
+        INNER JOIN sys.schemas s ON t.schema_id = s.schema_id
+        ORDER BY s.name, t.name
+        '''
+        tables = query_executor.execute_query(show_tables_query)
+        if tables:
+            for i, tbl in enumerate(tables, 1):
+                print(f"  {i}. {tbl['schema_name']}.{tbl['table_name']}")
+        else:
+            print("  (No tables found)")
+        print()
+
         # Create parquet writer
         parquet_writer = ParquetWriter()
-        
+
         # Create output directory
         output_dir = Path(os.getcwd()) / "parquetFiles" / "sqlserver"
         output_dir.mkdir(parents=True, exist_ok=True)

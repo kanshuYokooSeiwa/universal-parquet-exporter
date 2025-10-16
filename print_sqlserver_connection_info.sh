@@ -20,80 +20,114 @@ else
 	SQLSERVER_PASSWORD=""
 fi
 
-# Prompt for each parameter, using existing value if present
+
+# Detect shell type
+if [ -n "$BASH_VERSION" ]; then
+	SHELL_TYPE="bash"
+else
+	SHELL_TYPE="zsh"
+fi
+
+# Helper function for prompting
+prompt_input() {
+	local prompt="$1"
+	local varname="$2"
+	if [ "$SHELL_TYPE" = "bash" ]; then
+		read -p "$prompt" $varname
+	else
+		print -n "$prompt"
+		read $varname
+	fi
+}
+
 echo "Enter SQL Server host (default: localhost):"
 if [ -n "$SQLSERVER_HOST" ]; then
 	echo "Current: $SQLSERVER_HOST"
-	read -p "Is this correct? (y/n): " correct
+	prompt_input "Is this correct? (y/n): " correct
 	if [ "$correct" = "y" ]; then
 		host="$SQLSERVER_HOST"
 	else
-		read -p "Enter new host: " host
+		prompt_input "Enter new host: " host
 		host=${host:-localhost}
 	fi
 else
-	read host
+	prompt_input "" host
 	host=${host:-localhost}
 fi
 
 echo "Enter SQL Server port (default: 1433):"
 if [ -n "$SQLSERVER_PORT" ]; then
 	echo "Current: $SQLSERVER_PORT"
-	read -p "Is this correct? (y/n): " correct
+	prompt_input "Is this correct? (y/n): " correct
 	if [ "$correct" = "y" ]; then
 		port="$SQLSERVER_PORT"
 	else
-		read -p "Enter new port: " port
+		prompt_input "Enter new port: " port
 		port=${port:-1433}
 	fi
 else
-	read port
+	prompt_input "" port
 	port=${port:-1433}
 fi
 
 echo "Enter SQL Server database name:"
 if [ -n "$SQLSERVER_DATABASE" ]; then
 	echo "Current: $SQLSERVER_DATABASE"
-	read -p "Is this correct? (y/n): " correct
+	prompt_input "Is this correct? (y/n): " correct
 	if [ "$correct" = "y" ]; then
 		database="$SQLSERVER_DATABASE"
 	else
-		read -p "Enter new database: " database
+		prompt_input "Enter new database: " database
 	fi
 else
-	read database
+	prompt_input "" database
 fi
 
 echo "Enter SQL Server username:"
 if [ -n "$SQLSERVER_USER" ]; then
 	echo "Current: $SQLSERVER_USER"
-	read -p "Is this correct? (y/n): " correct
+	prompt_input "Is this correct? (y/n): " correct
 	if [ "$correct" = "y" ]; then
 		username="$SQLSERVER_USER"
 	else
-		read -p "Enter new username: " username
+		prompt_input "Enter new username: " username
 	fi
 else
-	read username
+	prompt_input "" username
 fi
 
 echo "Enter SQL Server password (input will be hidden):"
 if [ -n "$SQLSERVER_PASSWORD" ]; then
 	echo "Current: (hidden)"
-	read -p "Is this correct? (y/n): " correct
+	prompt_input "Is this correct? (y/n): " correct
 	if [ "$correct" = "y" ]; then
 		password="$SQLSERVER_PASSWORD"
 	else
+		if [ "$SHELL_TYPE" = "bash" ]; then
+			stty -echo
+			read -p "Enter new password: " password
+			stty echo
+			echo
+		else
+			print -n "Enter new password: "
+			stty -echo
+			read password
+			stty echo
+			echo
+		fi
+	fi
+else
+	if [ "$SHELL_TYPE" = "bash" ]; then
 		stty -echo
-		read -p "Enter new password: " password
+		read -p "" password
+		stty echo
+		echo
+	else
+		stty -echo
+		read password
 		stty echo
 		echo
 	fi
-else
-	stty -echo
-	read password
-	stty echo
-	echo
 fi
 
 
