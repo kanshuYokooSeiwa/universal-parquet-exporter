@@ -40,11 +40,161 @@ This library requires access to a MySQL database server. **MySQL must be install
 mysql -h your_host -u your_username -p your_database
 ```
 
+### SQL Server (Microsoft SQL Server) with pyodbc
+
+This library supports Microsoft SQL Server connections using the **pyodbc** driver. Follow the platform-specific instructions below to set up ODBC drivers.
+
+#### macOS
+
+**Step 1: Install unixODBC**
+```bash
+brew update
+brew install unixodbc
+```
+
+**Step 2: Add Microsoft's tap and install SQL Server ODBC driver**
+```bash
+brew tap microsoft/mssql-release https://github.com/Microsoft/homebrew-mssql-release
+brew update
+ACCEPT_EULA=Y brew install msodbcsql18 mssql-tools18
+```
+
+**Step 3: Verify installation**
+```bash
+# List installed ODBC drivers
+odbcinst -q -d
+
+# Should show: [ODBC Driver 18 for SQL Server]
+```
+
+**Step 4: Install Python pyodbc package**
+```bash
+pip install pyodbc
+```
+
+#### Windows
+
+**Step 1: Download and install Microsoft ODBC Driver**
+- Visit: [Microsoft ODBC Driver for SQL Server](https://learn.microsoft.com/en-us/sql/connect/odbc/download-odbc-driver-for-sql-server)
+- Download **ODBC Driver 18 for SQL Server** (or latest version)
+- Run the installer (`.msi` file) and follow the installation wizard
+- Accept the license agreement and complete installation
+
+**Step 2: Verify installation**
+- Open **ODBC Data Sources (64-bit)** from Start Menu
+- Go to the **Drivers** tab
+- Look for "ODBC Driver 18 for SQL Server" in the list
+
+**Step 3: Install Python pyodbc package**
+```cmd
+pip install pyodbc
+```
+
+**Alternative: Using Windows Package Manager (winget)**
+```cmd
+winget install Microsoft.ODBC.18
+```
+
+#### Linux (Ubuntu/Debian)
+
+**Step 1: Install unixODBC**
+```bash
+sudo apt-get update
+sudo apt-get install -y unixodbc-dev unixodbc
+```
+
+**Step 2: Add Microsoft repository and install ODBC driver**
+```bash
+# Add Microsoft repository (Ubuntu 22.04 example - adjust version as needed)
+curl https://packages.microsoft.com/keys/microsoft.asc | sudo tee /etc/apt/trusted.gpg.d/microsoft.asc
+curl https://packages.microsoft.com/config/ubuntu/22.04/prod.list | sudo tee /etc/apt/sources.list.d/mssql-release.list
+
+# Update and install
+sudo apt-get update
+sudo ACCEPT_EULA=Y apt-get install -y msodbcsql18 mssql-tools18
+
+# Optional: Add SQL Server tools to PATH
+echo 'export PATH="$PATH:/opt/mssql-tools18/bin"' >> ~/.bashrc
+source ~/.bashrc
+```
+
+**For other Linux distributions:**
+- **Red Hat/CentOS/Fedora**: See [Microsoft's RHEL installation guide](https://learn.microsoft.com/en-us/sql/connect/odbc/linux-mac/installing-the-microsoft-odbc-driver-for-sql-server)
+- **SUSE**: See [Microsoft's SUSE installation guide](https://learn.microsoft.com/en-us/sql/connect/odbc/linux-mac/installing-the-microsoft-odbc-driver-for-sql-server)
+
+**Step 3: Verify installation**
+```bash
+# List installed ODBC drivers
+odbcinst -q -d
+
+# Should show: [ODBC Driver 18 for SQL Server]
+```
+
+**Step 4: Install Python pyodbc package**
+```bash
+pip install pyodbc
+```
+
+#### Testing SQL Server Connection
+
+After installing the ODBC driver and pyodbc, test your connection:
+
+```python
+import pyodbc
+
+# List available drivers
+drivers = [driver for driver in pyodbc.drivers()]
+print("Available ODBC drivers:", drivers)
+
+# Test connection (adjust credentials)
+conn_str = (
+    "DRIVER={ODBC Driver 18 for SQL Server};"
+    "SERVER=your_server,1433;"
+    "DATABASE=your_database;"
+    "UID=your_username;"
+    "PWD=your_password;"
+    "Encrypt=yes;"
+    "TrustServerCertificate=yes;"
+)
+
+try:
+    conn = pyodbc.connect(conn_str)
+    print("✓ SQL Server connection successful!")
+    conn.close()
+except Exception as e:
+    print(f"✗ Connection failed: {e}")
+```
+
+#### Common Issues and Solutions
+
+**Issue: "Data source name not found"**
+- Verify driver installation: `odbcinst -q -d` (Linux/macOS) or check ODBC Data Sources (Windows)
+- Ensure driver name matches exactly: `ODBC Driver 18 for SQL Server`
+
+**Issue: "SSL Provider: The certificate chain was issued by an authority that is not trusted"**
+- Add `TrustServerCertificate=yes` to connection string (dev/test environments only)
+- For production, use proper SSL certificates
+
+**Issue: "Login timeout expired"**
+- Check server hostname/IP and port (default: 1433)
+- Verify firewall rules allow SQL Server connections
+- Ensure SQL Server is configured to accept TCP/IP connections
+
+**Issue: "Login failed for user"**
+- Verify username and password
+- Check SQL Server authentication mode (Windows Auth vs SQL Server Auth)
+- Ensure user has appropriate database permissions
+
 ### Python Dependencies
 To install the required Python dependencies, run:
 
 ```bash
 pip install -r requirements.txt
+```
+
+For SQL Server support, also install:
+```bash
+pip install pyodbc
 ```
 
 ## Usage
