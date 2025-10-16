@@ -1,22 +1,23 @@
-# MySQL to Parquet Pandas Wrapper
+# SQL to Parquet Pandas Wrapper
 
-This is a lightweight **pandas wrapper** designed to simplify the process of extracting data from MySQL databases and converting it to Apache Parquet format. Rather than being a standalone library, this tool provides a convenient interface around pandas functionality to streamline MySQL-to-Parquet workflows.
+This is a lightweight **pandas wrapper** designed to simplify the process of extracting data from relational databases (MySQL, SQL Server, and more) and converting it to Apache Parquet format. Rather than being a standalone library, this tool provides a convenient interface around pandas functionality to streamline SQL-to-Parquet workflows.
 
 ## What This Is
 
 This wrapper provides a **simplified interface** for:
-- Connecting to MySQL databases with minimal configuration
+- Connecting to multiple database types (MySQL, SQL Server) with minimal configuration
 - Executing SQL queries and automatically handling results as pandas-compatible data structures
 - Converting query results to Apache Parquet format using pandas' built-in capabilities
 - Managing database connections and error handling
 
 ## Key Benefits
 
+- **Multi-Database Support**: Works with MySQL, SQL Server (via pyodbc), and any DB-API 2.0 compliant database
 - **Pandas-based**: Leverages pandas' robust DataFrame functionality and parquet support
-- **Simplified Workflow**: Reduces boilerplate code for common MySQL-to-Parquet operations  
+- **Simplified Workflow**: Reduces boilerplate code for common SQL-to-Parquet operations  
 - **Type Safety**: Full type annotations for better development experience
 - **Flexible Data Format**: Handles data as dictionaries with meaningful column names (not generic column_0, column_1, etc.)
-- **Easy Integration**: Drop-in solution for data pipelines requiring MySQL data extraction
+- **Easy Integration**: Drop-in solution for data pipelines requiring database data extraction
 
 ## Prerequisites
 
@@ -252,9 +253,45 @@ The wrapper expects data in **dictionary format** for meaningful column names:
 - ✅ **Correct**: `[{'id': 1, 'name': 'John'}, {'id': 2, 'name': 'Jane'}]`
 - ❌ **Avoid**: `[(1, 'John'), (2, 'Jane')]` (results in column_0, column_1)
 
+## SQL Server Example
+
+```python
+from src.database.sqlserver_connection import SQLServerConnection
+from src.query.query_executor import QueryExecutor
+from src.export.parquet_writer import ParquetWriter
+from config.sqlserver_config import SQLServerConfig
+
+# Create SQL Server configuration
+config = SQLServerConfig(
+    host="your_server",
+    port=1433,
+    database="your_database",
+    user="your_username",
+    password="your_password",
+    encrypt="yes",
+    trust_server_certificate="yes"  # Use "no" for production with valid certificates
+)
+
+# Connect to SQL Server
+sql_conn = SQLServerConnection(config)
+connection = sql_conn.connect()
+
+# Execute query and get results as list of dictionaries
+query_executor = QueryExecutor(connection)
+results = query_executor.execute_query("SELECT TOP 10 name, database_id FROM sys.databases")
+# Results format: [{'name': 'master', 'database_id': 1}, ...]
+
+# Convert to Parquet
+parquet_writer = ParquetWriter()
+parquet_writer.write_to_parquet(results, 'databases.parquet')
+
+# Clean up
+sql_conn.close()
+```
+
 ## Integration Examples
 
-The library includes comprehensive integration examples that demonstrate real-world usage patterns with the test database. These examples show how to connect to MySQL, execute various types of queries, and export results to organized Parquet files.
+The library includes comprehensive integration examples that demonstrate real-world usage patterns with test databases. These examples show how to connect to MySQL and SQL Server, execute various types of queries, and export results to organized Parquet files.
 
 ### Prerequisites for Examples
 
@@ -287,7 +324,63 @@ python examples/basic_integration_example.py
 - `parquetFiles/orders.parquet` - All order records
 - `parquetFiles/high_value_customers.parquet` - Users with orders > $100
 
-### Advanced Integration Example
+### SQL Server Basic Integration Example
+
+**File**: `examples/sqlserver_basic_example.py`
+
+**Purpose**: Demonstrates SQL Server connectivity and basic query patterns using pyodbc.
+
+**What it does**:
+- Connects to SQL Server using ODBC Driver 18
+- Queries system databases and tables
+- Exports server properties and metadata
+- Shows proper pyodbc connection management
+
+**Usage**:
+```bash
+# Set environment variables (optional)
+export MSSQL_HOST="localhost"
+export MSSQL_PORT="1433"
+export MSSQL_DATABASE="tempdb"
+export MSSQL_USER="sa"
+export MSSQL_PASSWORD="YourStrong!Passw0rd"
+
+# From the project root directory
+python examples/sqlserver_basic_example.py
+```
+
+**Generated Files**:
+- `parquetFiles/sqlserver/system_databases.parquet` - Database information
+- `parquetFiles/sqlserver/system_tables.parquet` - Table metadata
+- `parquetFiles/sqlserver/server_properties.parquet` - Server configuration
+
+### SQL Server Advanced Integration Example
+
+**File**: `examples/sqlserver_advanced_example.py`
+
+**Purpose**: Demonstrates advanced SQL Server analytics with complex queries.
+
+**What it does**:
+- Database statistics with aggregations and JOINs
+- Schema analysis using window functions and CTEs
+- Index usage and performance metrics
+- Active session monitoring
+- Creates timestamped export directories
+
+**Usage**:
+```bash
+# From the project root directory
+python examples/sqlserver_advanced_example.py
+```
+
+**Generated Analytics Files**:
+- `database_statistics.parquet` - Database size and configuration analysis
+- `schema_analysis.parquet` - Table/object analysis with rankings
+- `index_analysis.parquet` - Index usage and performance metrics
+- `active_sessions.parquet` - Current database sessions
+- `export_summary.parquet` - Export metadata
+
+### Advanced Integration Example (MySQL)
 
 **File**: `examples/advanced_integration_example.py`
 
@@ -321,11 +414,27 @@ After running the examples, you'll have the following directory structure:
 ```
 mysql-parquet-lib/
 ├── parquetFiles/
-│   ├── users.parquet                    # Basic example output
+│   ├── users.parquet                           # MySQL basic example
 │   ├── orders.parquet
 │   ├── high_value_customers.parquet
-│   └── advanced_export_YYYYMMDD_HHMMSS/ # Advanced example output
-│       ├── user_order_summary.parquet
+│   ├── sqlserver/                              # SQL Server basic example
+│   │   ├── system_databases.parquet
+│   │   ├── system_tables.parquet
+│   │   └── server_properties.parquet
+│   ├── advanced_export_YYYYMMDD_HHMMSS/       # MySQL advanced example
+│   │   ├── user_order_summary.parquet
+│   │   ├── product_performance.parquet
+│   │   ├── age_demographic_analysis.parquet
+│   │   ├── high_value_transactions.parquet
+│   │   ├── customer_lifetime_value.parquet
+│   │   └── export_summary.parquet
+│   └── sqlserver/export_YYYYMMDD_HHMMSS/      # SQL Server advanced example
+│       ├── database_statistics.parquet
+│       ├── schema_analysis.parquet
+│       ├── index_analysis.parquet
+│       ├── active_sessions.parquet
+│       └── export_summary.parquet
+```
 │       ├── product_performance.parquet
 │       ├── age_demographic_analysis.parquet
 │       ├── high_value_transactions.parquet
@@ -377,6 +486,12 @@ result = conn.execute("""
 **Permission Errors**:
 - Verify `testuser` has proper privileges on `testdb`
 - Check that the `parquetFiles/` directory can be created
+
+**SQL Server Connection Issues**:
+- Verify ODBC driver is installed: `odbcinst -q -d` (macOS/Linux) or check ODBC Data Sources (Windows)
+- Test SQL Server connectivity and firewall rules
+- Check authentication mode (SQL Server Auth vs Windows Auth)
+- Verify `TrustServerCertificate` setting matches your environment
 
 For detailed examples documentation, see [`examples/README.md`](examples/README.md).
 
@@ -585,20 +700,37 @@ All code follows strict typing conventions:
 
 ## Architecture
 
-This wrapper is built around three core components:
+This wrapper is built around core components that support multiple database types:
 
-### 1. MySQLConnection (`src/database/mysql_connection.py`)
+### Database Connections
+
+#### 1. MySQLConnection (`src/database/mysql_connection.py`)
 - Handles MySQL database connectivity
 - Wraps standard MySQL connection management
+- Configuration via `DatabaseConfig`
 
-### 2. QueryExecutor (`src/query/query_executor.py`) 
+#### 2. SQLServerConnection (`src/database/sqlserver_connection.py`)
+- Handles Microsoft SQL Server connectivity using pyodbc
+- ODBC Driver 18 support with SSL/TLS configuration
+- Configuration via `SQLServerConfig`
+- Context manager support for automatic cleanup
+
+### Query Execution
+
+#### 3. QueryExecutor (`src/query/query_executor.py`) 
+- **Database-agnostic**: Works with any DB-API 2.0 compliant connection
 - Executes SQL queries and returns structured data
 - Converts results to dictionary format for meaningful column names
+- Uses `cursor.description` to extract column metadata
+- Compatible with both MySQL and SQL Server connections
 
-### 3. ParquetWriter (`src/export/parquet_writer.py`)
+### Data Export
+
+#### 4. ParquetWriter (`src/export/parquet_writer.py`)
 - **Pandas Wrapper**: Uses `pd.DataFrame.to_parquet()` internally
 - Accepts data as `List[Dict[str, Any]]` to preserve column names
 - Leverages pandas' optimized parquet writing capabilities
+- Database-agnostic: works with data from any source
 
 ## Why This Wrapper?
 
