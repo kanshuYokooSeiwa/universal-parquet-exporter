@@ -139,5 +139,5 @@ Thumbs.db
 # Test notebook
 test.ipynb
 
-# Local configuration file
+#SQL configure file
 .confSQLConnection 
