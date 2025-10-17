@@ -43,13 +43,13 @@ def main() -> None:
     # Configure SQL Server connection
     # You can use environment variables or hardcode credentials (not recommended for production)
     config = SQLServerConfig(
-        host=os.getenv("MSSQL_HOST", "localhost"),
-        port=int(os.getenv("MSSQL_PORT", "1433")),
-        database=os.getenv("MSSQL_DATABASE", "tempdb"),
-        user=os.getenv("MSSQL_USER", "sa"),
-        password=os.getenv("MSSQL_PASSWORD", "YourStrong!Passw0rd"),
-        encrypt=os.getenv("MSSQL_ENCRYPT", "yes"),
-        trust_server_certificate=os.getenv("MSSQL_TRUST_CERT", "yes"),
+        host=os.getenv("SQLSERVER_HOST", "localhost"),
+        port=int(os.getenv("SQLSERVER_PORT", "1433")),
+        database=os.getenv("SQLSERVER_DATABASE", "tempdb"),
+        user=os.getenv("SQLSERVER_USER", "sa"),
+        password=os.getenv("SQLSERVER_PASSWORD", "YourStrong!Passw0rd"),
+        encrypt=os.getenv("SQLSERVER_ENCRYPT", "yes"),
+        trust_server_certificate=os.getenv("SQLSERVER_TRUST_CERT", "yes"),
     )
     
     print(f"Connecting to SQL Server: {config.host}:{config.port}")

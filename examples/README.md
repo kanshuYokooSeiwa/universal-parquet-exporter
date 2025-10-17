@@ -94,13 +94,16 @@ python examples/advanced_integration_example.py
 
 **Environment Variables** (optional):
 ```bash
-export MSSQL_HOST="localhost"
-export MSSQL_PORT="1433"
-export MSSQL_DATABASE="tempdb"
-export MSSQL_USER="sa"
-export MSSQL_PASSWORD="YourStrong!Passw0rd"
-export MSSQL_ENCRYPT="yes"
-export MSSQL_TRUST_CERT="yes"
+# You can generate and load these via the helper:
+# source configure_sql_connection_info.sh   # writes .confSQLConnection and exports vars
+
+export SQLSERVER_HOST="localhost"
+export SQLSERVER_PORT="1433"
+export SQLSERVER_DATABASE="tempdb"
+export SQLSERVER_USER="sa"
+export SQLSERVER_PASSWORD="YourStrong!Passw0rd"
+export SQLSERVER_ENCRYPT="yes"
+export SQLSERVER_TRUST_CERT="yes"
 ```
 
 **Usage**:

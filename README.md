@@ -338,12 +338,20 @@ python examples/basic_integration_example.py
 
 **Usage**:
 ```bash
-# Set environment variables (optional)
-export MSSQL_HOST="localhost"
-export MSSQL_PORT="1433"
-export MSSQL_DATABASE="tempdb"
-export MSSQL_USER="sa"
-export MSSQL_PASSWORD="YourStrong!Passw0rd"
+# Option A: Use the helper to create/export env vars
+# Recommended: source it so variables are exported immediately
+source configure_sql_connection_info.sh  # bash/zsh compatible; writes .confSQLConnection
+# If you ran it without sourcing, load env vars with:
+source .confSQLConnection
+
+# Option B: Manually export env vars
+export SQLSERVER_HOST="localhost"
+export SQLSERVER_PORT="1433"
+export SQLSERVER_DATABASE="tempdb"
+export SQLSERVER_USER="sa"
+export SQLSERVER_PASSWORD="YourStrong!Passw0rd"
+export SQLSERVER_ENCRYPT="yes"
+export SQLSERVER_TRUST_CERT="yes"
 
 # From the project root directory
 python examples/sqlserver_basic_example.py
