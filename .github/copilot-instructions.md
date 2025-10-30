@@ -68,6 +68,12 @@ python -m pytest tests/test_database_config.py -v    # Configuration
 4. **Missing type imports**: Import from `typing` module
 5. **Modifying working tests**: Add new tests, don't modify existing patterns
 
+## Troubleshooting Common Errors
+**Import errors** (`ModuleNotFoundError`): Run `pip install -r requirements.txt`
+**Test failures** (unexpected): Check if you changed data format or removed type hints
+**MySQL connection errors**: Integration tests skip automatically - this is normal
+**Parquet write errors**: Verify data is `List[Dict[str, Any]]`, not tuples or other format
+
 ## Pre-Commit Validation
 ```bash
 python -m pytest tests/ -v  # Must show: 25 passed, 11 skipped
