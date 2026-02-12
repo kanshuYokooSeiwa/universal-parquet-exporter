@@ -186,6 +186,105 @@ except Exception as e:
 - Check SQL Server authentication mode (Windows Auth vs SQL Server Auth)
 - Ensure user has appropriate database permissions
 
+#### macOS OpenSSL 3.0 TLS Compatibility Issue
+
+**Problem**: On newer macOS systems (macOS 15.x Sequoia, M4 Pro, etc.) with OpenSSL 3.0, you may encounter the following error when connecting to SQL Server:
+
+```
+[08001] [Microsoft][ODBC Driver 18 for SQL Server]TCP Provider: Error code 0x2746 (10054)
+```
+
+This error occurs even when:
+- Network connectivity is confirmed (e.g., `sqlcmd` works, `nc -zv server 1433` succeeds)  
+- Credentials are correct
+- SQL Server is running and accepting connections
+
+**Root Cause**: OpenSSL 3.0 enforces stricter security standards (`SECLEVEL=1` or higher) by default. When connecting to on-premise SQL Server instances that use legacy TLS parameters or self-signed certificates, OpenSSL 3.0 terminates the connection because the server's encryption doesn't meet the default security requirements.
+
+**Automatic Solution**: This library now includes **automatic OpenSSL compatibility fixes** for macOS:
+
+```python
+from config.sqlserver_config import SQLServerConfig
+from src.database.sqlserver_connection import SQLServerConnection
+
+# Configuration with automatic OpenSSL patch enabled (default)
+config = SQLServerConfig(
+    host="192.168.210.21",
+    port=1433,
+    database="your_database", 
+    user="your_username",
+    password="your_password",
+    encrypt="no",  # Recommended for local/legacy SQL Server
+    trust_server_certificate="yes",
+    auto_apply_openssl_patch=True  # Default: automatically fix TLS issues
+)
+
+# Connection will automatically apply OpenSSL patch if needed
+sql_conn = SQLServerConnection(config)
+connection = sql_conn.connect()  # Will show patch application in console if applied
+```
+
+**What the automatic fix does**:
+1. **Detects the Issue**: Identifies TCP Provider 10054 errors on macOS
+2. **Applies Patch**: Creates a temporary OpenSSL config with `CipherString = DEFAULT:@SECLEVEL=0`  
+3. **Retries Connection**: Attempts connection again with relaxed TLS requirements
+4. **Cleans Up**: Removes temporary configuration files automatically
+
+**Manual Testing**: You can verify the fix works with the included test script:
+
+```bash
+# Test the OpenSSL patch in isolation
+python test_openssl_patch_standalone.py
+
+# Full connection testing with detailed diagnostics
+source .confSQLConnection && python test_sqlserver_connection.py
+```
+
+**Configuration Options**:
+
+Via environment variables (using `configure_sql_connection_info.sh`):
+```bash
+export SQLSERVER_AUTO_OPENSSL_PATCH="true"   # Enable automatic patching (default)
+export SQLSERVER_AUTO_OPENSSL_PATCH="false"  # Disable if you prefer manual control
+```
+
+Via configuration object:
+```python
+config = SQLServerConfig(
+    # ... other settings ...
+    auto_apply_openssl_patch=False  # Disable automatic patching
+)
+```
+
+**Manual Workaround** (if automatic patch doesn't work):
+
+```bash
+# Create OpenSSL config file manually
+cat > /tmp/openssl_legacy.cnf << EOF
+openssl_conf = openssl_init
+
+[openssl_init]
+ssl_conf = ssl_sect
+
+[ssl_sect]
+system_default = system_default_sect
+
+[system_default_sect]
+CipherString = DEFAULT:@SECLEVEL=0
+EOF
+
+# Set environment variable before running Python
+export OPENSSL_CONF=/tmp/openssl_legacy.cnf
+python your_script.py
+```
+
+**Security Note**: The `SECLEVEL=0` setting temporarily lowers OpenSSL security standards to allow legacy TLS connections. This is applied only for the specific Python process and is automatically cleaned up. For production environments with properly configured SSL certificates, consider upgrading the SQL Server TLS configuration instead.
+
+**Environment-Specific Recommendations**:
+- **Development/Local SQL Server**: Use `encrypt="no"` and `auto_apply_openssl_patch=True`
+- **Production with Valid Certificates**: Use `encrypt="yes"` and proper SSL certificates
+- **Legacy On-Premise**: Use automatic OpenSSL patching for compatibility
+
 ### Python Dependencies
 To install the required Python dependencies, run:
 
@@ -262,19 +361,25 @@ from src.export.parquet_writer import ParquetWriter
 from config.sqlserver_config import SQLServerConfig
 
 # Create SQL Server configuration
+# Note: On macOS with OpenSSL 3.0, TLS compatibility issues are handled automatically
 config = SQLServerConfig(
     host="your_server",
     port=1433,
     database="your_database",
     user="your_username",
     password="your_password",
-    encrypt="yes",
-    trust_server_certificate="yes"  # Use "no" for production with valid certificates
+    encrypt="no",  # Recommended for local/legacy SQL Server (avoids TLS issues)
+    trust_server_certificate="yes",  # Required for self-signed certificates
+    auto_apply_openssl_patch=True  # Default: automatically fix macOS OpenSSL 3.0 TLS issues
 )
 
-# Connect to SQL Server
+# Connect to SQL Server (will automatically handle macOS TLS compatibility if needed)
 sql_conn = SQLServerConnection(config)
 connection = sql_conn.connect()
+# On macOS, you may see messages like:
+# 🔧 Detected macOS OpenSSL TLS compatibility issue (TCP Provider 10054)  
+# 💡 Applying OpenSSL legacy patch (SECLEVEL=0) for SQL Server compatibility...
+# ✅ Connection successful with OpenSSL legacy patch!
 
 # Execute query and get results as list of dictionaries
 query_executor = QueryExecutor(connection)
@@ -285,8 +390,33 @@ results = query_executor.execute_query("SELECT TOP 10 name, database_id FROM sys
 parquet_writer = ParquetWriter()
 parquet_writer.write_to_parquet(results, 'databases.parquet')
 
-# Clean up
+# Clean up (automatically removes OpenSSL patch files if applied)
 sql_conn.close()
+```
+
+### Configuration from Environment Variables
+
+For easier configuration management, especially in different environments:
+
+```bash
+# Use the interactive configuration script
+./configure_sql_connection_info.sh
+
+# This creates a .confSQLConnection file with your settings
+source .confSQLConnection
+
+# Then use in Python:
+```
+
+```python
+from config.sqlserver_config import SQLServerConfig
+
+# Load configuration from environment variables
+config = SQLServerConfig.from_environment()
+
+# All settings including OpenSSL patch preferences are loaded automatically
+sql_conn = SQLServerConnection(config)
+connection = sql_conn.connect()
 ```
 
 ## Integration Examples
@@ -719,9 +849,14 @@ This wrapper is built around core components that support multiple database type
 
 #### 2. SQLServerConnection (`src/database/sqlserver_connection.py`)
 - Handles Microsoft SQL Server connectivity using pyodbc
-- ODBC Driver 18 support with SSL/TLS configuration
+- ODBC Driver 18/17 support with automatic driver detection
+- Advanced SSL/TLS configuration options
+- **macOS OpenSSL 3.0 Compatibility**: Automatically detects and fixes TLS compatibility issues
+- **Automatic OpenSSL Patching**: Creates temporary `SECLEVEL=0` configuration for legacy SQL Server TLS
+- Enhanced error handling with specific troubleshooting guidance
 - Configuration via `SQLServerConfig`
 - Context manager support for automatic cleanup
+- Process-local OpenSSL configuration management
 
 ### Query Execution
 
@@ -768,6 +903,49 @@ results = query_executor.execute_query("SELECT * FROM users")
 ParquetWriter().write_to_parquet(results, 'output.parquet')
 mysql_conn.close()
 ```
+
+## Troubleshooting
+
+### SQL Server Connection Issues
+
+**Common Error**: `TCP Provider: Error code 0x2746 (10054)` on macOS
+
+This is typically an **OpenSSL 3.0 TLS compatibility issue**. The library handles this automatically, but you can diagnose and test manually:
+
+```bash
+# Test your SQL Server connection with comprehensive diagnostics
+source .confSQLConnection && python test_sqlserver_connection.py
+
+# Test OpenSSL patch in isolation  
+python test_openssl_patch_standalone.py
+
+# Check if your environment needs the patch
+python -c "import sys, ssl; print(f'Platform: {sys.platform}'); print(f'OpenSSL: {ssl.OPENSSL_VERSION}')"
+```
+
+**Quick Fix Summary**:
+1. **Automatic (Recommended)**: Set `auto_apply_openssl_patch=True` (default)
+2. **Configuration**: Use `encrypt="no"` and `trust_server_certificate="yes"` for local SQL Server
+3. **Environment**: Use `./configure_sql_connection_info.sh` for easy setup
+4. **Testing**: Run `test_sqlserver_connection.py` for detailed diagnostics
+
+### MySQL Connection Issues
+
+**Common Error**: `ERROR 2003 (HY000): Can't connect to MySQL server`
+
+**Solutions**:
+1. **Check MySQL Service**: `brew services start mysql` (macOS) or `sudo systemctl start mysql` (Linux)
+2. **Verify Connection**: `mysql -h localhost -u your_user -p`
+3. **Test Library Connection**:
+   ```bash
+   python -c "
+   from config.database_config import DatabaseConfig
+   from src.database.mysql_connection import MySQLConnection
+   config = DatabaseConfig('localhost', 'user', 'password', 'database')
+   conn = MySQLConnection(config).connect()
+   print('✅ MySQL connection successful!')
+   "
+   ```
 
 ## Contributing
 

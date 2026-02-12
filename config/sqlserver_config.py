@@ -28,6 +28,7 @@ class SQLServerConfig:
     encrypt: str = "no"  # Changed default to match sqlcmd behavior for local connections
     trust_server_certificate: str = "yes"  # Required for local SQL Server 2022
     mars: str = "no"
+    auto_apply_openssl_patch: bool = True  # Automatically apply OpenSSL patch on macOS TLS errors
     extra: Optional[Dict[str, str]] = None
     
     def __post_init__(self) -> None:
@@ -89,6 +90,9 @@ class SQLServerConfig:
         encrypt = os.getenv('SQLSERVER_ENCRYPT', 'no')  # Match sqlcmd default
         trust_cert = os.getenv('SQLSERVER_TRUST_CERT', 'yes')  # Required for local connections
         
+        # OpenSSL patch configuration
+        auto_patch = os.getenv('SQLSERVER_AUTO_OPENSSL_PATCH', 'true').lower() == 'true'
+        
         return cls(
             host=host,
             port=port,
@@ -97,7 +101,8 @@ class SQLServerConfig:
             password=password,
             driver=driver,
             encrypt=encrypt,
-            trust_server_certificate=trust_cert
+            trust_server_certificate=trust_cert,
+            auto_apply_openssl_patch=auto_patch
         )
     
     def validate(self) -> List[str]:

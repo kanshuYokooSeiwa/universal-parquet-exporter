@@ -43,6 +43,7 @@ fi
 : ${SQLSERVER_PASSWORD:=""}
 : ${SQLSERVER_ENCRYPT:=""}
 : ${SQLSERVER_TRUST_CERT:=""}
+: ${SQLSERVER_AUTO_OPENSSL_PATCH:=""}
 
 # Host
 echo "Enter SQL Server host (default: localhost):"
@@ -120,8 +121,22 @@ if [ -z "$SQLSERVER_PASSWORD" ]; then
 fi
 
 # Encrypt and TrustServerCertificate (optional with defaults)
-if [ -z "$SQLSERVER_ENCRYPT" ]; then SQLSERVER_ENCRYPT="yes"; fi
+if [ -z "$SQLSERVER_ENCRYPT" ]; then SQLSERVER_ENCRYPT="no"; fi
 if [ -z "$SQLSERVER_TRUST_CERT" ]; then SQLSERVER_TRUST_CERT="yes"; fi
+
+# OpenSSL Auto Patch (for macOS compatibility)
+echo "Enable automatic OpenSSL patch for macOS TLS compatibility (recommended: yes):"
+if [ -n "$SQLSERVER_AUTO_OPENSSL_PATCH" ]; then
+  echo "Current: $SQLSERVER_AUTO_OPENSSL_PATCH"
+  prompt_input "Is this correct? (y/n): " correct
+  if [ "$correct" != "y" ]; then
+    prompt_input "Enable OpenSSL auto patch? (yes/no): " SQLSERVER_AUTO_OPENSSL_PATCH
+  fi
+fi
+if [ -z "$SQLSERVER_AUTO_OPENSSL_PATCH" ]; then
+  prompt_input "" SQLSERVER_AUTO_OPENSSL_PATCH
+  SQLSERVER_AUTO_OPENSSL_PATCH=${SQLSERVER_AUTO_OPENSSL_PATCH:-yes}
+fi
 
 # Write export lines to config file
 cat > "$conf_file" << EOF
@@ -132,6 +147,7 @@ export SQLSERVER_USER="$SQLSERVER_USER"
 export SQLSERVER_PASSWORD="$SQLSERVER_PASSWORD"
 export SQLSERVER_ENCRYPT="$SQLSERVER_ENCRYPT"
 export SQLSERVER_TRUST_CERT="$SQLSERVER_TRUST_CERT"
+export SQLSERVER_AUTO_OPENSSL_PATCH="$SQLSERVER_AUTO_OPENSSL_PATCH"
 EOF
 
 echo "Saved environment configuration to $conf_file"
@@ -158,6 +174,7 @@ if $is_sourced; then
   export SQLSERVER_PASSWORD="$SQLSERVER_PASSWORD"
   export SQLSERVER_ENCRYPT="$SQLSERVER_ENCRYPT"
   export SQLSERVER_TRUST_CERT="$SQLSERVER_TRUST_CERT"
+  export SQLSERVER_AUTO_OPENSSL_PATCH="$SQLSERVER_AUTO_OPENSSL_PATCH"
   echo "Environment variables exported into current shell."
 else
   echo "Tip: To export variables into your current shell, run:"
@@ -168,6 +185,7 @@ else
   echo "  export SQLSERVER_PASSWORD=\"$SQLSERVER_PASSWORD\""
   echo "  export SQLSERVER_ENCRYPT=\"$SQLSERVER_ENCRYPT\""
   echo "  export SQLSERVER_TRUST_CERT=\"$SQLSERVER_TRUST_CERT\""
+  echo "  export SQLSERVER_AUTO_OPENSSL_PATCH=\"$SQLSERVER_AUTO_OPENSSL_PATCH\""
 fi
 
 # Show connection string (masked password) and summary
@@ -178,5 +196,6 @@ echo "Port: $SQLSERVER_PORT"
 echo "Database: $SQLSERVER_DATABASE"
 echo "User: $SQLSERVER_USER"
 echo "Encrypt: $SQLSERVER_ENCRYPT, TrustServerCertificate: $SQLSERVER_TRUST_CERT"
+echo "OpenSSL Auto Patch: $SQLSERVER_AUTO_OPENSSL_PATCH"
 echo "Connection string (pyodbc):"
 echo "DRIVER={ODBC Driver 18 for SQL Server};SERVER=$SQLSERVER_HOST,$SQLSERVER_PORT;DATABASE=$SQLSERVER_DATABASE;UID=$SQLSERVER_USER;PWD=********;Encrypt=$SQLSERVER_ENCRYPT;TrustServerCertificate=$SQLSERVER_TRUST_CERT"

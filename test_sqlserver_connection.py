@@ -46,6 +46,39 @@ def load_config_from_env() -> SQLServerConfig:
         print("   python test_sqlserver_connection.py")
         sys.exit(1)
 
+def test_openssl_environment():
+    """Test OpenSSL version and macOS compatibility"""
+    print("\n🔍 Testing OpenSSL Environment...")
+    
+    # Check platform
+    print(f"Platform: {sys.platform}")
+    if sys.platform == "darwin":
+        print("✅ macOS detected - OpenSSL patch may be needed for legacy SQL Server")
+    else:
+        print("ℹ️ Non-macOS platform - OpenSSL patch typically not needed")
+    
+    # Check OpenSSL version if available
+    try:
+        import ssl
+        print(f"SSL Module: {ssl.OPENSSL_VERSION}")
+        
+        # Check if OpenSSL 3.0+
+        version = ssl.OPENSSL_VERSION_NUMBER
+        if version >= 0x30000000:  # OpenSSL 3.0.0
+            print("⚠️  OpenSSL 3.0+ detected - may need SECLEVEL=0 for legacy SQL Server")
+        else:
+            print("✅ OpenSSL version should be compatible with legacy servers")
+            
+    except Exception as e:
+        print(f"Could not determine OpenSSL version: {e}")
+    
+    # Check current OPENSSL_CONF setting
+    current_conf = os.getenv('OPENSSL_CONF')
+    if current_conf:
+        print(f"Current OPENSSL_CONF: {current_conf}")
+    else:
+        print("No custom OpenSSL configuration active")
+
 def test_prerequisites():
     """Test system prerequisites for SQL Server connectivity"""
     print("\n🔍 Testing Prerequisites...")
@@ -110,6 +143,64 @@ def test_connection_prerequisites(config: SQLServerConfig):
         print("✅ Configuration validation passed")
     
     return prereq_results['config_valid']
+
+def test_connection_with_patch_modes(config: SQLServerConfig):
+    """Test connection with different OpenSSL patch modes"""
+    print("\n🧪 Testing Connection with OpenSSL Patch Modes...")
+    
+    # Test 1: Without patch (if auto-patch is enabled, create config with it disabled)
+    print("\n1️⃣ Testing without OpenSSL patch...")
+    config_no_patch = SQLServerConfig(
+        host=config.host,
+        port=config.port,
+        database=config.database,
+        user=config.user,
+        password=config.password,
+        driver=config.driver,
+        encrypt=config.encrypt,
+        trust_server_certificate=config.trust_server_certificate,
+        mars=config.mars,
+        auto_apply_openssl_patch=False,  # Disable patch
+        extra=config.extra
+    )
+    
+    sql_conn_no_patch = SQLServerConnection(config_no_patch)
+    try:
+        print("🔄 Attempting connection without OpenSSL patch...")
+        conn = sql_conn_no_patch.connect()
+        print("✅ Connection successful without patch")
+        sql_conn_no_patch.close()
+        return True  # No patch needed
+    except Exception as e:
+        print(f"❌ Connection failed without patch: {str(e)[:100]}...")
+    
+    # Test 2: With automatic patch
+    print("\n2️⃣ Testing with automatic OpenSSL patch...")
+    config_with_patch = SQLServerConfig(
+        host=config.host,
+        port=config.port,
+        database=config.database,
+        user=config.user,
+        password=config.password,
+        driver=config.driver,
+        encrypt=config.encrypt,
+        trust_server_certificate=config.trust_server_certificate,
+        mars=config.mars,
+        auto_apply_openssl_patch=True,  # Enable patch
+        extra=config.extra
+    )
+    
+    sql_conn_patch = SQLServerConnection(config_with_patch)
+    try:
+        print("🔄 Attempting connection with automatic OpenSSL patch...")
+        conn = sql_conn_patch.connect()
+        print("✅ Connection successful with OpenSSL patch!")
+        sql_conn_patch.close()
+        return True
+    except Exception as e:
+        print(f"❌ Connection failed even with patch: {str(e)[:100]}...")
+    
+    return False
 
 def test_connection(config: SQLServerConfig):
     """Test SQL Server connection with detailed diagnostics"""
@@ -214,12 +305,15 @@ def main():
     print("🚀 SQL Server Connection Test")
     print("=" * 50)
     print("Purpose: Debug SQL Server connectivity issues for mysql-parquet-lib")
-    print("Target: SQL Server 2022 on macOS with pyodbc")
+    print("Target: SQL Server 2022 on macOS with pyodbc + OpenSSL compatibility")
     print()
     
     # Check for diagnostic mode
     if len(sys.argv) > 1 and sys.argv[1] in ['--diagnostic', '-d']:
         run_diagnostic_mode()
+    
+    # Test OpenSSL environment
+    test_openssl_environment()
     
     # Test prerequisites
     print("📋 Step 1: Prerequisites Check")
@@ -250,15 +344,26 @@ def main():
         print("\\n❌ Connection prerequisites check failed.")
         sys.exit(1)
     
-    # Test connection
-    print("\\n📋 Step 4: Connection Test")
-    success = test_connection(config)
+    # Test connection with different patch modes
+    print("\n📋 Step 4: OpenSSL Patch Mode Testing")
+    success = test_connection_with_patch_modes(config)
+    
+    if not success:
+        # If patch mode testing fails, try standard connection test
+        print("\n📋 Step 5: Standard Connection Test")
+        success = test_connection(config)
     
     print("\\n" + "=" * 50)
     if success:
         print("🎉 SUCCESS: SQL Server connection test completed successfully!")
         print("💡 Your SQL Server connection is working correctly.")
         print("   You can now use this configuration in your applications.")
+        print("\n🔧 OpenSSL Compatibility: ")
+        if sys.platform == "darwin":
+            print("   - macOS OpenSSL 3.0 compatibility handled automatically")
+            print("   - Legacy TLS patch applied when needed")
+        else:
+            print("   - Non-macOS platform: OpenSSL compatibility checking not needed")
     else:
         print("💥 FAILED: SQL Server connection test failed.")
         print("💡 Please review the error messages above and:")
@@ -266,6 +371,8 @@ def main():
         print("   2. Verify your credentials are correct")
         print("   3. Ensure network connectivity to the server")
         print("   4. Consider running with --diagnostic for more details")
+        if sys.platform == "darwin":
+            print("   5. On macOS: Check if this is an OpenSSL 3.0 TLS compatibility issue")
         sys.exit(1)
 
 if __name__ == "__main__":
