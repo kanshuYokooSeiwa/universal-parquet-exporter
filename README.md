@@ -307,6 +307,12 @@ To connect to a MySQL database, create an instance of the `MySQLConnection` clas
 
 Use the `QueryExecutor` class from the `query_executor` module to execute your SQL queries. Pass the SQL query as a parameter to the `execute_query` method.
 
+### Data Format
+
+The wrapper expects data in **dictionary format** for meaningful column names:
+- ✅ **Correct**: `[{'id': 1, 'name': 'John'}, {'id': 2, 'name': 'Jane'}]`
+- ❌ **Avoid**: `[(1, 'John'), (2, 'Jane')]` (results in column_0, column_1)
+
 ### Exporting to Parquet
 
 To save the results of your query in Parquet format, use the `ParquetWriter` class from the `parquet_writer` module. Call the `write_to_parquet` method with the query results.
@@ -345,12 +351,6 @@ parquet_writer.write_to_parquet(results, 'users.parquet')
 # Clean up
 mysql_conn.close()
 ```
-
-### Data Format
-
-The wrapper expects data in **dictionary format** for meaningful column names:
-- ✅ **Correct**: `[{'id': 1, 'name': 'John'}, {'id': 2, 'name': 'Jane'}]`
-- ❌ **Avoid**: `[(1, 'John'), (2, 'Jane')]` (results in column_0, column_1)
 
 ## SQL Server Example
 
