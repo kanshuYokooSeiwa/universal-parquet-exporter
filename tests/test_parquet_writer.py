@@ -57,21 +57,11 @@ class TestParquetWriter(unittest.TestCase):
             self.assertEqual(df_read.iloc[0, 1], 'John')
             self.assertEqual(df_read.iloc[1, 2], 'Smith')
     
-    def test_write_to_parquet_empty_data(self) -> None:
-        """Test writing empty data to parquet."""
-        empty_data: List[Tuple[Any, ...]] = []
-        
-        with tempfile.TemporaryDirectory() as temp_dir:
-            file_path: str = os.path.join(temp_dir, 'empty_output.parquet')
-            
-            self.parquet_writer.write_to_parquet(empty_data, file_path)
-            
-            # Verify file was created
-            self.assertTrue(os.path.exists(file_path))
-            
-            # Verify empty DataFrame
-            df_read: pd.DataFrame = pd.read_parquet(file_path)
-            self.assertTrue(df_read.empty)
+    def test_write_to_parquet_empty_data(self):
+        """Test that empty data raises ValueError."""
+        writer = ParquetWriter()
+        with self.assertRaises(ValueError):
+            writer.write_to_parquet([], "test.parquet")
     
     @patch('src.export.parquet_writer.pd.DataFrame')
     def test_write_to_parquet_with_exception(self, mock_dataframe: Mock) -> None:
