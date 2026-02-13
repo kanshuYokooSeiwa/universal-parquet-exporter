@@ -419,6 +419,31 @@ sql_conn = SQLServerConnection(config)
 connection = sql_conn.connect()
 ```
 
+### Comprehensive Testing Notebook
+
+The project includes **`connectionTest.ipynb`** - a comprehensive Jupyter notebook for testing and demonstrating SQL Server connectivity:
+
+**Test Cases Included:**
+1. **Basic Connection Test**: Validates OpenSSL 3.0 TLS compatibility and basic connectivity
+2. **Database Metadata Query**: Tests complex queries (`SELECT DB_NAME() AS CurrentDB, * FROM sys.databases WHERE name = 'database_name'`)
+3. **Table Discovery**: Lists all tables (`SELECT name FROM sys.tables`) with analysis
+4. **Business Data Extraction**: Extracts actual data from business tables and exports to Parquet
+
+**Usage:**
+```bash
+# Launch Jupyter notebook
+jupyter notebook connectionTest.ipynb
+# OR use VS Code with Jupyter extension
+
+# All cells demonstrate:
+# - Automatic OpenSSL 3.0 TLS compatibility handling
+# - Complete SQL Server → Dictionary → Parquet pipeline
+# - Data type preservation and validation
+# - Real-world business table data extraction
+```
+
+The notebook serves as both a **testing suite** and **usage demonstration** for SQL Server integration.
+
 ## Integration Examples
 
 The library includes comprehensive integration examples that demonstrate real-world usage patterns with test databases. These examples show how to connect to MySQL and SQL Server, execute various types of queries, and export results to organized Parquet files.
