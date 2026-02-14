@@ -1,22 +1,23 @@
-# MySQL to Parquet Pandas Wrapper
+# SQL to Parquet Pandas Wrapper
 
-This is a lightweight **pandas wrapper** designed to simplify the process of extracting data from MySQL databases and converting it to Apache Parquet format. Rather than being a standalone library, this tool provides a convenient interface around pandas functionality to streamline MySQL-to-Parquet workflows.
+This is a lightweight **pandas wrapper** designed to simplify the process of extracting data from relational databases (MySQL, SQL Server, and more) and converting it to Apache Parquet format. Rather than being a standalone library, this tool provides a convenient interface around pandas functionality to streamline SQL-to-Parquet workflows.
 
 ## What This Is
 
 This wrapper provides a **simplified interface** for:
-- Connecting to MySQL databases with minimal configuration
+- Connecting to multiple database types (MySQL, SQL Server) with minimal configuration
 - Executing SQL queries and automatically handling results as pandas-compatible data structures
 - Converting query results to Apache Parquet format using pandas' built-in capabilities
 - Managing database connections and error handling
 
 ## Key Benefits
 
+- **Multi-Database Support**: Works with MySQL, SQL Server (via pyodbc), and any DB-API 2.0 compliant database
 - **Pandas-based**: Leverages pandas' robust DataFrame functionality and parquet support
-- **Simplified Workflow**: Reduces boilerplate code for common MySQL-to-Parquet operations  
+- **Simplified Workflow**: Reduces boilerplate code for common SQL-to-Parquet operations  
 - **Type Safety**: Full type annotations for better development experience
 - **Flexible Data Format**: Handles data as dictionaries with meaningful column names (not generic column_0, column_1, etc.)
-- **Easy Integration**: Drop-in solution for data pipelines requiring MySQL data extraction
+- **Easy Integration**: Drop-in solution for data pipelines requiring database data extraction
 
 ## Prerequisites
 
@@ -40,11 +41,260 @@ This library requires access to a MySQL database server. **MySQL must be install
 mysql -h your_host -u your_username -p your_database
 ```
 
+### SQL Server (Microsoft SQL Server) with pyodbc
+
+This library supports Microsoft SQL Server connections using the **pyodbc** driver. Follow the platform-specific instructions below to set up ODBC drivers.
+
+#### macOS
+
+**Step 1: Install unixODBC**
+```bash
+brew update
+brew install unixodbc
+```
+
+**Step 2: Add Microsoft's tap and install SQL Server ODBC driver**
+```bash
+brew tap microsoft/mssql-release https://github.com/Microsoft/homebrew-mssql-release
+brew update
+ACCEPT_EULA=Y brew install msodbcsql18 mssql-tools18
+```
+
+**Step 3: Verify installation**
+```bash
+# List installed ODBC drivers
+odbcinst -q -d
+
+# Should show: [ODBC Driver 18 for SQL Server]
+```
+
+**Step 4: Install Python pyodbc package**
+```bash
+pip install pyodbc
+```
+
+#### Windows
+
+**Step 1: Download and install Microsoft ODBC Driver**
+- Visit: [Microsoft ODBC Driver for SQL Server](https://learn.microsoft.com/en-us/sql/connect/odbc/download-odbc-driver-for-sql-server)
+- Download **ODBC Driver 18 for SQL Server** (or latest version)
+- Run the installer (`.msi` file) and follow the installation wizard
+- Accept the license agreement and complete installation
+
+**Step 2: Verify installation**
+- Open **ODBC Data Sources (64-bit)** from Start Menu
+- Go to the **Drivers** tab
+- Look for "ODBC Driver 18 for SQL Server" in the list
+
+**Step 3: Install Python pyodbc package**
+```cmd
+pip install pyodbc
+```
+
+**Alternative: Using Windows Package Manager (winget)**
+```cmd
+winget install Microsoft.ODBC.18
+```
+
+#### Linux (Ubuntu/Debian)
+
+**Step 1: Install unixODBC**
+```bash
+sudo apt-get update
+sudo apt-get install -y unixodbc-dev unixodbc
+```
+
+**Step 2: Add Microsoft repository and install ODBC driver**
+```bash
+# Add Microsoft repository (Ubuntu 22.04 example - adjust version as needed)
+curl https://packages.microsoft.com/keys/microsoft.asc | sudo tee /etc/apt/trusted.gpg.d/microsoft.asc
+curl https://packages.microsoft.com/config/ubuntu/22.04/prod.list | sudo tee /etc/apt/sources.list.d/mssql-release.list
+
+# Update and install
+sudo apt-get update
+sudo ACCEPT_EULA=Y apt-get install -y msodbcsql18 mssql-tools18
+
+# Optional: Add SQL Server tools to PATH
+echo 'export PATH="$PATH:/opt/mssql-tools18/bin"' >> ~/.bashrc
+source ~/.bashrc
+```
+
+**For other Linux distributions:**
+- **Red Hat/CentOS/Fedora**: See [Microsoft's RHEL installation guide](https://learn.microsoft.com/en-us/sql/connect/odbc/linux-mac/installing-the-microsoft-odbc-driver-for-sql-server)
+- **SUSE**: See [Microsoft's SUSE installation guide](https://learn.microsoft.com/en-us/sql/connect/odbc/linux-mac/installing-the-microsoft-odbc-driver-for-sql-server)
+
+**Step 3: Verify installation**
+```bash
+# List installed ODBC drivers
+odbcinst -q -d
+
+# Should show: [ODBC Driver 18 for SQL Server]
+```
+
+**Step 4: Install Python pyodbc package**
+```bash
+pip install pyodbc
+```
+
+#### Testing SQL Server Connection
+
+After installing the ODBC driver and pyodbc, test your connection:
+
+```python
+import pyodbc
+
+# List available drivers
+drivers = [driver for driver in pyodbc.drivers()]
+print("Available ODBC drivers:", drivers)
+
+# Test connection (adjust credentials)
+conn_str = (
+    "DRIVER={ODBC Driver 18 for SQL Server};"
+    "SERVER=your_server,1433;"
+    "DATABASE=your_database;"
+    "UID=your_username;"
+    "PWD=your_password;"
+    "Encrypt=yes;"
+    "TrustServerCertificate=yes;"
+)
+
+try:
+    conn = pyodbc.connect(conn_str)
+    print("✓ SQL Server connection successful!")
+    conn.close()
+except Exception as e:
+    print(f"✗ Connection failed: {e}")
+```
+
+#### Common Issues and Solutions
+
+**Issue: "Data source name not found"**
+- Verify driver installation: `odbcinst -q -d` (Linux/macOS) or check ODBC Data Sources (Windows)
+- Ensure driver name matches exactly: `ODBC Driver 18 for SQL Server`
+
+**Issue: "SSL Provider: The certificate chain was issued by an authority that is not trusted"**
+- Add `TrustServerCertificate=yes` to connection string (dev/test environments only)
+- For production, use proper SSL certificates
+
+**Issue: "Login timeout expired"**
+- Check server hostname/IP and port (default: 1433)
+- Verify firewall rules allow SQL Server connections
+- Ensure SQL Server is configured to accept TCP/IP connections
+
+**Issue: "Login failed for user"**
+- Verify username and password
+- Check SQL Server authentication mode (Windows Auth vs SQL Server Auth)
+- Ensure user has appropriate database permissions
+
+#### macOS OpenSSL 3.0 TLS Compatibility Issue
+
+**Problem**: On newer macOS systems (macOS 15.x Sequoia, M4 Pro, etc.) with OpenSSL 3.0, you may encounter the following error when connecting to SQL Server:
+
+```
+[08001] [Microsoft][ODBC Driver 18 for SQL Server]TCP Provider: Error code 0x2746 (10054)
+```
+
+This error occurs even when:
+- Network connectivity is confirmed (e.g., `sqlcmd` works, `nc -zv server 1433` succeeds)  
+- Credentials are correct
+- SQL Server is running and accepting connections
+
+**Root Cause**: OpenSSL 3.0 enforces stricter security standards (`SECLEVEL=1` or higher) by default. When connecting to on-premise SQL Server instances that use legacy TLS parameters or self-signed certificates, OpenSSL 3.0 terminates the connection because the server's encryption doesn't meet the default security requirements.
+
+**Automatic Solution**: This library now includes **automatic OpenSSL compatibility fixes** for macOS:
+
+```python
+from config.sqlserver_config import SQLServerConfig
+from src.database.sqlserver_connection import SQLServerConnection
+
+# Configuration with automatic OpenSSL patch enabled (default)
+config = SQLServerConfig(
+    host="192.168.210.21",
+    port=1433,
+    database="your_database", 
+    user="your_username",
+    password="your_password",
+    encrypt="no",  # Recommended for local/legacy SQL Server
+    trust_server_certificate="yes",
+    auto_apply_openssl_patch=True  # Default: automatically fix TLS issues
+)
+
+# Connection will automatically apply OpenSSL patch if needed
+sql_conn = SQLServerConnection(config)
+connection = sql_conn.connect()  # Will show patch application in console if applied
+```
+
+**What the automatic fix does**:
+1. **Detects the Issue**: Identifies TCP Provider 10054 errors on macOS
+2. **Applies Patch**: Creates a temporary OpenSSL config with `CipherString = DEFAULT:@SECLEVEL=0`  
+3. **Retries Connection**: Attempts connection again with relaxed TLS requirements
+4. **Cleans Up**: Removes temporary configuration files automatically
+
+**Manual Testing**: You can verify the fix works with the included test script:
+
+```bash
+# Test the OpenSSL patch in isolation
+python test_openssl_patch_standalone.py
+
+# Full connection testing with detailed diagnostics
+source .confSQLConnection && python test_sqlserver_connection.py
+```
+
+**Configuration Options**:
+
+Via environment variables (using `configure_sql_connection_info.sh`):
+```bash
+export SQLSERVER_AUTO_OPENSSL_PATCH="true"   # Enable automatic patching (default)
+export SQLSERVER_AUTO_OPENSSL_PATCH="false"  # Disable if you prefer manual control
+```
+
+Via configuration object:
+```python
+config = SQLServerConfig(
+    # ... other settings ...
+    auto_apply_openssl_patch=False  # Disable automatic patching
+)
+```
+
+**Manual Workaround** (if automatic patch doesn't work):
+
+```bash
+# Create OpenSSL config file manually
+cat > /tmp/openssl_legacy.cnf << EOF
+openssl_conf = openssl_init
+
+[openssl_init]
+ssl_conf = ssl_sect
+
+[ssl_sect]
+system_default = system_default_sect
+
+[system_default_sect]
+CipherString = DEFAULT:@SECLEVEL=0
+EOF
+
+# Set environment variable before running Python
+export OPENSSL_CONF=/tmp/openssl_legacy.cnf
+python your_script.py
+```
+
+**Security Note**: The `SECLEVEL=0` setting temporarily lowers OpenSSL security standards to allow legacy TLS connections. This is applied only for the specific Python process and is automatically cleaned up. For production environments with properly configured SSL certificates, consider upgrading the SQL Server TLS configuration instead.
+
+**Environment-Specific Recommendations**:
+- **Development/Local SQL Server**: Use `encrypt="no"` and `auto_apply_openssl_patch=True`
+- **Production with Valid Certificates**: Use `encrypt="yes"` and proper SSL certificates
+- **Legacy On-Premise**: Use automatic OpenSSL patching for compatibility
+
 ### Python Dependencies
 To install the required Python dependencies, run:
 
 ```bash
 pip install -r requirements.txt
+```
+
+For SQL Server support, also install:
+```bash
+pip install pyodbc
 ```
 
 ## Usage
@@ -56,6 +306,12 @@ To connect to a MySQL database, create an instance of the `MySQLConnection` clas
 ### Executing Queries
 
 Use the `QueryExecutor` class from the `query_executor` module to execute your SQL queries. Pass the SQL query as a parameter to the `execute_query` method.
+
+### Data Format
+
+The wrapper expects data in **dictionary format** for meaningful column names:
+- ✅ **Correct**: `[{'id': 1, 'name': 'John'}, {'id': 2, 'name': 'Jane'}]`
+- ❌ **Avoid**: `[(1, 'John'), (2, 'Jane')]` (results in column_0, column_1)
 
 ### Exporting to Parquet
 
@@ -96,15 +352,101 @@ parquet_writer.write_to_parquet(results, 'users.parquet')
 mysql_conn.close()
 ```
 
-### Data Format
+## SQL Server Example
 
-The wrapper expects data in **dictionary format** for meaningful column names:
-- ✅ **Correct**: `[{'id': 1, 'name': 'John'}, {'id': 2, 'name': 'Jane'}]`
-- ❌ **Avoid**: `[(1, 'John'), (2, 'Jane')]` (results in column_0, column_1)
+```python
+from src.database.sqlserver_connection import SQLServerConnection
+from src.query.query_executor import QueryExecutor
+from src.export.parquet_writer import ParquetWriter
+from config.sqlserver_config import SQLServerConfig
+
+# Create SQL Server configuration
+# Note: On macOS with OpenSSL 3.0, TLS compatibility issues are handled automatically
+config = SQLServerConfig(
+    host="your_server",
+    port=1433,
+    database="your_database",
+    user="your_username",
+    password="your_password",
+    encrypt="no",  # Recommended for local/legacy SQL Server (avoids TLS issues)
+    trust_server_certificate="yes",  # Required for self-signed certificates
+    auto_apply_openssl_patch=True  # Default: automatically fix macOS OpenSSL 3.0 TLS issues
+)
+
+# Connect to SQL Server (will automatically handle macOS TLS compatibility if needed)
+sql_conn = SQLServerConnection(config)
+connection = sql_conn.connect()
+# On macOS, you may see messages like:
+# 🔧 Detected macOS OpenSSL TLS compatibility issue (TCP Provider 10054)  
+# 💡 Applying OpenSSL legacy patch (SECLEVEL=0) for SQL Server compatibility...
+# ✅ Connection successful with OpenSSL legacy patch!
+
+# Execute query and get results as list of dictionaries
+query_executor = QueryExecutor(connection)
+results = query_executor.execute_query("SELECT TOP 10 name, database_id FROM sys.databases")
+# Results format: [{'name': 'master', 'database_id': 1}, ...]
+
+# Convert to Parquet
+parquet_writer = ParquetWriter()
+parquet_writer.write_to_parquet(results, 'databases.parquet')
+
+# Clean up (automatically removes OpenSSL patch files if applied)
+sql_conn.close()
+```
+
+### Configuration from Environment Variables
+
+For easier configuration management, especially in different environments:
+
+```bash
+# Use the interactive configuration script
+./configure_sql_connection_info.sh
+
+# This creates a .confSQLConnection file with your settings
+source .confSQLConnection
+
+# Then use in Python:
+```
+
+```python
+from config.sqlserver_config import SQLServerConfig
+
+# Load configuration from environment variables
+config = SQLServerConfig.from_environment()
+
+# All settings including OpenSSL patch preferences are loaded automatically
+sql_conn = SQLServerConnection(config)
+connection = sql_conn.connect()
+```
+
+### Comprehensive Testing Notebook
+
+The project includes **`connectionTest.ipynb`** - a comprehensive Jupyter notebook for testing and demonstrating SQL Server connectivity:
+
+**Test Cases Included:**
+1. **Basic Connection Test**: Validates OpenSSL 3.0 TLS compatibility and basic connectivity
+2. **Database Metadata Query**: Tests complex queries (`SELECT DB_NAME() AS CurrentDB, * FROM sys.databases WHERE name = 'database_name'`)
+3. **Table Discovery**: Lists all tables (`SELECT name FROM sys.tables`) with analysis
+4. **Business Data Extraction**: Extracts actual data from business tables and exports to Parquet
+
+**Usage:**
+```bash
+# Launch Jupyter notebook
+jupyter notebook connectionTest.ipynb
+# OR use VS Code with Jupyter extension
+
+# All cells demonstrate:
+# - Automatic OpenSSL 3.0 TLS compatibility handling
+# - Complete SQL Server → Dictionary → Parquet pipeline
+# - Data type preservation and validation
+# - Real-world business table data extraction
+```
+
+The notebook serves as both a **testing suite** and **usage demonstration** for SQL Server integration.
 
 ## Integration Examples
 
-The library includes comprehensive integration examples that demonstrate real-world usage patterns with the test database. These examples show how to connect to MySQL, execute various types of queries, and export results to organized Parquet files.
+The library includes comprehensive integration examples that demonstrate real-world usage patterns with test databases. These examples show how to connect to MySQL and SQL Server, execute various types of queries, and export results to organized Parquet files.
 
 ### Prerequisites for Examples
 
@@ -137,7 +479,71 @@ python examples/basic_integration_example.py
 - `parquetFiles/orders.parquet` - All order records
 - `parquetFiles/high_value_customers.parquet` - Users with orders > $100
 
-### Advanced Integration Example
+### SQL Server Basic Integration Example
+
+**File**: `examples/sqlserver_basic_example.py`
+
+**Purpose**: Demonstrates SQL Server connectivity and basic query patterns using pyodbc.
+
+**What it does**:
+- Connects to SQL Server using ODBC Driver 18
+- Queries system databases and tables
+- Exports server properties and metadata
+- Shows proper pyodbc connection management
+
+**Usage**:
+```bash
+# Option A: Use the helper to create/export env vars
+# Recommended: source it so variables are exported immediately
+source configure_sql_connection_info.sh  # bash/zsh compatible; writes .confSQLConnection
+# If you ran it without sourcing, load env vars with:
+source .confSQLConnection
+
+# Option B: Manually export env vars
+export SQLSERVER_HOST="localhost"
+export SQLSERVER_PORT="1433"
+export SQLSERVER_DATABASE="tempdb"
+export SQLSERVER_USER="sa"
+export SQLSERVER_PASSWORD="YourStrong!Passw0rd"
+export SQLSERVER_ENCRYPT="yes"
+export SQLSERVER_TRUST_CERT="yes"
+
+# From the project root directory
+python examples/sqlserver_basic_example.py
+```
+
+**Generated Files**:
+- `parquetFiles/sqlserver/system_databases.parquet` - Database information
+- `parquetFiles/sqlserver/system_tables.parquet` - Table metadata
+- `parquetFiles/sqlserver/server_properties.parquet` - Server configuration
+
+### SQL Server Advanced Integration Example
+
+**File**: `examples/sqlserver_advanced_example.py`
+
+**Purpose**: Demonstrates advanced SQL Server analytics with complex queries.
+
+**What it does**:
+- Database statistics with aggregations and JOINs
+- Schema analysis using window functions and CTEs
+- Index usage and performance metrics
+- Active session monitoring
+- Creates timestamped export directories
+
+**Usage**:
+```bash
+# From the project root directory
+python examples/sqlserver_advanced_example.py
+```
+
+**Generated Analytics Files**:
+- `database_statistics.parquet` - Database size and configuration analysis
+- `schema_analysis.parquet` - Table/object analysis with rankings
+- `index_analysis.parquet` - Index usage and performance metrics
+- `active_sessions.parquet` - Current database sessions
+- `export_summary.parquet` - Export metadata
+
+### Advanced Integration Example (MySQL)
 
 **File**: `examples/advanced_integration_example.py`
 
@@ -171,11 +577,27 @@ After running the examples, you'll have the following directory structure:
 ```
 mysql-parquet-lib/
 ├── parquetFiles/
-│   ├── users.parquet                    # Basic example output
+│   ├── users.parquet                           # MySQL basic example
 │   ├── orders.parquet
 │   ├── high_value_customers.parquet
-│   └── advanced_export_YYYYMMDD_HHMMSS/ # Advanced example output
-│       ├── user_order_summary.parquet
+│   ├── sqlserver/                              # SQL Server basic example
+│   │   ├── system_databases.parquet
+│   │   ├── system_tables.parquet
+│   │   └── server_properties.parquet
+│   ├── advanced_export_YYYYMMDD_HHMMSS/       # MySQL advanced example
+│   │   ├── user_order_summary.parquet
+│   │   ├── product_performance.parquet
+│   │   ├── age_demographic_analysis.parquet
+│   │   ├── high_value_transactions.parquet
+│   │   ├── customer_lifetime_value.parquet
+│   │   └── export_summary.parquet
+│   └── sqlserver/export_YYYYMMDD_HHMMSS/      # SQL Server advanced example
+│       ├── database_statistics.parquet
+│       ├── schema_analysis.parquet
+│       ├── index_analysis.parquet
+│       ├── active_sessions.parquet
+│       └── export_summary.parquet
+```
 │       ├── product_performance.parquet
 │       ├── age_demographic_analysis.parquet
 │       ├── high_value_transactions.parquet
@@ -227,6 +649,12 @@ result = conn.execute("""
 **Permission Errors**:
 - Verify `testuser` has proper privileges on `testdb`
 - Check that the `parquetFiles/` directory can be created
+
+**SQL Server Connection Issues**:
+- Verify ODBC driver is installed: `odbcinst -q -d` (macOS/Linux) or check ODBC Data Sources (Windows)
+- Test SQL Server connectivity and firewall rules
+- Check authentication mode (SQL Server Auth vs Windows Auth)
+- Verify `TrustServerCertificate` setting matches your environment
 
 For detailed examples documentation, see [`examples/README.md`](examples/README.md).
 
@@ -435,20 +863,42 @@ All code follows strict typing conventions:
 
 ## Architecture
 
-This wrapper is built around three core components:
+This wrapper is built around core components that support multiple database types:
 
-### 1. MySQLConnection (`src/database/mysql_connection.py`)
+### Database Connections
+
+#### 1. MySQLConnection (`src/database/mysql_connection.py`)
 - Handles MySQL database connectivity
 - Wraps standard MySQL connection management
+- Configuration via `DatabaseConfig`
 
-### 2. QueryExecutor (`src/query/query_executor.py`) 
+#### 2. SQLServerConnection (`src/database/sqlserver_connection.py`)
+- Handles Microsoft SQL Server connectivity using pyodbc
+- ODBC Driver 18/17 support with automatic driver detection
+- Advanced SSL/TLS configuration options
+- **macOS OpenSSL 3.0 Compatibility**: Automatically detects and fixes TLS compatibility issues
+- **Automatic OpenSSL Patching**: Creates temporary `SECLEVEL=0` configuration for legacy SQL Server TLS
+- Enhanced error handling with specific troubleshooting guidance
+- Configuration via `SQLServerConfig`
+- Context manager support for automatic cleanup
+- Process-local OpenSSL configuration management
+
+### Query Execution
+
+#### 3. QueryExecutor (`src/query/query_executor.py`) 
+- **Database-agnostic**: Works with any DB-API 2.0 compliant connection
 - Executes SQL queries and returns structured data
 - Converts results to dictionary format for meaningful column names
+- Uses `cursor.description` to extract column metadata
+- Compatible with both MySQL and SQL Server connections
 
-### 3. ParquetWriter (`src/export/parquet_writer.py`)
+### Data Export
+
+#### 4. ParquetWriter (`src/export/parquet_writer.py`)
 - **Pandas Wrapper**: Uses `pd.DataFrame.to_parquet()` internally
 - Accepts data as `List[Dict[str, Any]]` to preserve column names
 - Leverages pandas' optimized parquet writing capabilities
+- Database-agnostic: works with data from any source
 
 ## Why This Wrapper?
 
@@ -478,6 +928,49 @@ results = query_executor.execute_query("SELECT * FROM users")
 ParquetWriter().write_to_parquet(results, 'output.parquet')
 mysql_conn.close()
 ```
+
+## Troubleshooting
+
+### SQL Server Connection Issues
+
+**Common Error**: `TCP Provider: Error code 0x2746 (10054)` on macOS
+
+This is typically an **OpenSSL 3.0 TLS compatibility issue**. The library handles this automatically, but you can diagnose and test manually:
+
+```bash
+# Test your SQL Server connection with comprehensive diagnostics
+source .confSQLConnection && python test_sqlserver_connection.py
+
+# Test OpenSSL patch in isolation  
+python test_openssl_patch_standalone.py
+
+# Check if your environment needs the patch
+python -c "import sys, ssl; print(f'Platform: {sys.platform}'); print(f'OpenSSL: {ssl.OPENSSL_VERSION}')"
+```
+
+**Quick Fix Summary**:
+1. **Automatic (Recommended)**: Set `auto_apply_openssl_patch=True` (default)
+2. **Configuration**: Use `encrypt="no"` and `trust_server_certificate="yes"` for local SQL Server
+3. **Environment**: Use `./configure_sql_connection_info.sh` for easy setup
+4. **Testing**: Run `test_sqlserver_connection.py` for detailed diagnostics
+
+### MySQL Connection Issues
+
+**Common Error**: `ERROR 2003 (HY000): Can't connect to MySQL server`
+
+**Solutions**:
+1. **Check MySQL Service**: `brew services start mysql` (macOS) or `sudo systemctl start mysql` (Linux)
+2. **Verify Connection**: `mysql -h localhost -u your_user -p`
+3. **Test Library Connection**:
+   ```bash
+   python -c "
+   from config.database_config import DatabaseConfig
+   from src.database.mysql_connection import MySQLConnection
+   config = DatabaseConfig('localhost', 'user', 'password', 'database')
+   conn = MySQLConnection(config).connect()
+   print('✅ MySQL connection successful!')
+   "
+   ```
 
 ## Contributing
 
