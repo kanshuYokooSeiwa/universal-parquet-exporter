@@ -248,6 +248,17 @@ CipherString = DEFAULT:@SECLEVEL=0
         if self._connection is None:
             conn_str: str = self._build_connection_string()
             
+            # Check if OpenSSL configuration is already set externally
+            if os.environ.get('OPENSSL_CONF'):
+                # Skip auto-patching if OPENSSL_CONF is already configured
+                # This is common when launched from a script that pre-configures OpenSSL
+                try:
+                    self._connection = pyodbc.connect(conn_str)
+                    return self._connection
+                except pyodbc.Error as e:
+                    # Re-raise with enhanced error message
+                    raise Exception(self._build_error_message(e))
+            
             # First attempt - normal connection
             try:
                 self._connection = pyodbc.connect(conn_str)
