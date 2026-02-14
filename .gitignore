@@ -139,5 +139,8 @@ Thumbs.db
 # Test notebook
 test.ipynb
 
+# Implementation files
+implementation_docs/
+
 #SQL configure file
 .confSQLConnection 
